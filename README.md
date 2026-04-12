@@ -21,7 +21,7 @@ This repo answers those questions with reproducible tests.
 
 ## Architecture
 
-![MCP Lab test harness architecture](docs/assets/architecture.png)
+![MCP Lab test harness architecture](docs/assets/mcp_lab_architecture.svg)
 
 ## Repo structure
 
