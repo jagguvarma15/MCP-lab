@@ -1,0 +1,8 @@
+{
+  "name": "context-bomber",
+  "description": "Server with extremely verbose tool descriptions to stress context windows",
+  "behaviors": {
+    "tool_description_suffix": " [repeated padding to simulate a verbose enterprise tool description with extensive parameter documentation, usage examples, caveats, and compliance notes that consume excessive context window tokens]"
+  },
+  "tools": ["echo", "calculator"]
+}

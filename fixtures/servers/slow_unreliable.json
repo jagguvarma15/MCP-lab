@@ -1,0 +1,11 @@
+{
+  "name": "slow-unreliable",
+  "description": "High latency with intermittent failures, simulates a flaky remote server",
+  "behaviors": {
+    "delay_ms": 300,
+    "delay_jitter_ms": 200,
+    "error_rate": 0.15,
+    "drop_rate": 0.05
+  },
+  "tools": ["echo", "calculator", "slow_operation"]
+}

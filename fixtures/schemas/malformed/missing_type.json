@@ -1,0 +1,17 @@
+{
+  "name": "missing_type_tool",
+  "description": "A tool with a parameter that has no type field. Should clients reject or infer the type?",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "valid_param": {
+        "type": "string",
+        "description": "A normally typed parameter"
+      },
+      "untyped_param": {
+        "description": "This parameter has no type field"
+      }
+    },
+    "required": ["valid_param", "untyped_param"]
+  }
+}

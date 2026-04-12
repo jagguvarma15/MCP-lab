@@ -1,0 +1,18 @@
+{
+  "name": "invalid_type_tool",
+  "description": "A tool with a parameter using an invalid JSON Schema type.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "valid_param": {
+        "type": "string",
+        "description": "A normally typed parameter"
+      },
+      "bad_param": {
+        "type": "dinosaur",
+        "description": "This type does not exist in JSON Schema"
+      }
+    },
+    "required": ["valid_param", "bad_param"]
+  }
+}

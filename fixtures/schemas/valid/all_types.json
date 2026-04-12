@@ -1,0 +1,49 @@
+{
+  "name": "type_showcase",
+  "description": "A tool with one parameter of every JSON Schema type. Used as a conformance baseline for type handling.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "text_field": {
+        "type": "string",
+        "description": "A string parameter"
+      },
+      "number_field": {
+        "type": "number",
+        "description": "A floating-point number parameter"
+      },
+      "integer_field": {
+        "type": "integer",
+        "description": "An integer parameter"
+      },
+      "boolean_field": {
+        "type": "boolean",
+        "description": "A boolean parameter"
+      },
+      "array_field": {
+        "type": "array",
+        "description": "An array of strings",
+        "items": {
+          "type": "string"
+        }
+      },
+      "object_field": {
+        "type": "object",
+        "description": "A nested object parameter",
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "value": {
+            "type": "string"
+          }
+        }
+      },
+      "null_field": {
+        "type": "null",
+        "description": "A null-typed parameter"
+      }
+    },
+    "required": ["text_field", "number_field", "integer_field", "boolean_field", "array_field", "object_field", "null_field"]
+  }
+}

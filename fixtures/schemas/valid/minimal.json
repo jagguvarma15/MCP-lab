@@ -1,0 +1,14 @@
+{
+  "name": "simple_echo",
+  "description": "Returns the input message unchanged.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "message": {
+        "type": "string",
+        "description": "The message to return"
+      }
+    },
+    "required": ["message"]
+  }
+}

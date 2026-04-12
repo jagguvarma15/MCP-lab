@@ -1,0 +1,10 @@
+{
+  "name": "honest-server",
+  "description": "A well-behaved server for baseline testing",
+  "behaviors": {
+    "delay_ms": 0,
+    "drop_rate": 0.0,
+    "error_rate": 0.0
+  },
+  "tools": ["echo", "calculator"]
+}

@@ -1,0 +1,5 @@
+{
+  "name": "empty_schema_tool",
+  "description": "A tool with a completely empty input schema. No properties, no required fields. Is everything valid or nothing valid?",
+  "inputSchema": {}
+}

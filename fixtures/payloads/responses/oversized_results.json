@@ -1,0 +1,48 @@
+[
+  {
+    "description": "Tool result with 1MB+ text content",
+    "tool_name": "large_export",
+    "tool_result": {
+      "content": [
+        {
+          "type": "text",
+          "text": "NOTE: In actual use, this field would contain 1MB+ of text data. This fixture provides the structure; test code should programmatically generate the large payload. Use: 'A' * 1_048_576 to create a 1MB string."
+        }
+      ]
+    },
+    "generate_large_payload": {
+      "field": "content[0].text",
+      "size_bytes": 1048576,
+      "fill_char": "A"
+    }
+  },
+  {
+    "description": "Tool result with many content blocks",
+    "tool_name": "multi_result",
+    "tool_result": {
+      "content": [
+        {"type": "text", "text": "Block 1 of many. In testing, generate 1000+ blocks."}
+      ]
+    },
+    "generate_many_blocks": {
+      "count": 1000,
+      "template": {"type": "text", "text": "Content block {i} with padding data to increase size."}
+    }
+  },
+  {
+    "description": "Tool result with deeply nested JSON in text",
+    "tool_name": "nested_export",
+    "tool_result": {
+      "content": [
+        {
+          "type": "text",
+          "text": "NOTE: Generate a JSON string with 100 levels of nesting: {\"a\":{\"a\":{...}}}. Tests parser resilience to deep recursion."
+        }
+      ]
+    },
+    "generate_nested": {
+      "depth": 100,
+      "key": "a"
+    }
+  }
+]

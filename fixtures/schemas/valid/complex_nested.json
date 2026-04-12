@@ -1,0 +1,96 @@
+{
+  "name": "create_workflow",
+  "description": "Create a multi-step workflow with conditional branching and nested task definitions.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "name": {
+        "type": "string",
+        "description": "Workflow name"
+      },
+      "steps": {
+        "type": "array",
+        "description": "Ordered list of workflow steps",
+        "items": {
+          "type": "object",
+          "properties": {
+            "step_id": {
+              "type": "string",
+              "description": "Unique step identifier"
+            },
+            "action": {
+              "type": "string",
+              "description": "Action to perform",
+              "enum": ["transform", "validate", "notify", "branch", "wait"]
+            },
+            "config": {
+              "type": "object",
+              "description": "Action-specific configuration",
+              "properties": {
+                "timeout_ms": {
+                  "type": "integer",
+                  "description": "Step timeout in milliseconds"
+                },
+                "retry_count": {
+                  "type": "integer",
+                  "description": "Number of retries on failure"
+                },
+                "parameters": {
+                  "type": "object",
+                  "description": "Arbitrary key-value parameters for the action"
+                }
+              }
+            },
+            "conditions": {
+              "type": "array",
+              "description": "Conditions that must be met to execute this step",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "field": {
+                    "type": "string",
+                    "description": "Field to evaluate"
+                  },
+                  "operator": {
+                    "type": "string",
+                    "enum": ["eq", "neq", "gt", "lt", "contains", "exists"]
+                  },
+                  "value": {
+                    "description": "Value to compare against"
+                  }
+                },
+                "required": ["field", "operator"]
+              }
+            },
+            "on_failure": {
+              "type": "string",
+              "description": "Step to jump to on failure",
+              "enum": ["abort", "skip", "retry", "fallback"]
+            }
+          },
+          "required": ["step_id", "action"]
+        }
+      },
+      "metadata": {
+        "type": "object",
+        "description": "Workflow metadata",
+        "properties": {
+          "owner": {
+            "type": "string"
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "priority": {
+            "type": "string",
+            "enum": ["low", "medium", "high", "critical"]
+          }
+        }
+      }
+    },
+    "required": ["name", "steps"]
+  }
+}

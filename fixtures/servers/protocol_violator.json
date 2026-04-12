@@ -1,0 +1,11 @@
+{
+  "name": "protocol-violator",
+  "description": "Deliberately violates JSON-RPC and MCP spec requirements",
+  "behaviors": {
+    "wrong_jsonrpc_version": true,
+    "omit_id": true,
+    "extra_fields": {"x-custom": "should-not-be-here"},
+    "malformed_json_rate": 0.1
+  },
+  "tools": ["echo"]
+}

@@ -1,0 +1,95 @@
+[
+  {
+    "description": "Completely broken JSON",
+    "raw_request": "{not valid json at all",
+    "expected_error_code": -32700
+  },
+  {
+    "description": "Missing jsonrpc field",
+    "request": {
+      "id": 1,
+      "method": "ping",
+      "params": {}
+    },
+    "expected_behavior": "Server may reject or accept -- jsonrpc field is required by spec"
+  },
+  {
+    "description": "Wrong jsonrpc version",
+    "request": {
+      "jsonrpc": "1.0",
+      "id": 2,
+      "method": "ping",
+      "params": {}
+    },
+    "expected_behavior": "Server should reject non-2.0 versions"
+  },
+  {
+    "description": "Missing method field",
+    "request": {
+      "jsonrpc": "2.0",
+      "id": 3,
+      "params": {}
+    },
+    "expected_error_code": -32600
+  },
+  {
+    "description": "String ID instead of integer",
+    "request": {
+      "jsonrpc": "2.0",
+      "id": "string-id",
+      "method": "ping",
+      "params": {}
+    },
+    "expected_behavior": "JSON-RPC 2.0 allows string, number, or null IDs -- should succeed"
+  },
+  {
+    "description": "Negative integer ID",
+    "request": {
+      "jsonrpc": "2.0",
+      "id": -1,
+      "method": "ping",
+      "params": {}
+    },
+    "expected_behavior": "Negative IDs are technically valid in JSON-RPC 2.0"
+  },
+  {
+    "description": "Null ID (treated as notification by spec)",
+    "request": {
+      "jsonrpc": "2.0",
+      "id": null,
+      "method": "ping",
+      "params": {}
+    },
+    "expected_behavior": "Null ID is ambiguous -- spec says it should not be used"
+  },
+  {
+    "description": "Float ID",
+    "request": {
+      "jsonrpc": "2.0",
+      "id": 1.5,
+      "method": "ping",
+      "params": {}
+    },
+    "expected_behavior": "Fractional IDs are allowed by JSON-RPC but discouraged"
+  },
+  {
+    "description": "Empty method string",
+    "request": {
+      "jsonrpc": "2.0",
+      "id": 4,
+      "method": "",
+      "params": {}
+    },
+    "expected_error_code": -32601
+  },
+  {
+    "description": "Params as array instead of object",
+    "request": {
+      "jsonrpc": "2.0",
+      "id": 5,
+      "method": "ping",
+      "params": [1, 2, 3]
+    },
+    "expected_behavior": "JSON-RPC allows array params but MCP typically uses objects"
+  }
+]

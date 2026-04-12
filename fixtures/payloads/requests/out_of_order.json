@@ -1,0 +1,73 @@
+[
+  {
+    "description": "tools/list before initialize -- spec says server SHOULD reject",
+    "request": {
+      "jsonrpc": "2.0",
+      "id": 1,
+      "method": "tools/list",
+      "params": {}
+    },
+    "expected_response": {
+      "note": "Server should reject or return an error, but many servers respond normally"
+    }
+  },
+  {
+    "description": "tools/call before initialize -- calling a tool without handshake",
+    "request": {
+      "jsonrpc": "2.0",
+      "id": 2,
+      "method": "tools/call",
+      "params": {
+        "name": "echo",
+        "arguments": {"message": "no init yet"}
+      }
+    },
+    "expected_response": {
+      "note": "Should fail since server has not been initialized"
+    }
+  },
+  {
+    "description": "ping before initialize",
+    "request": {
+      "jsonrpc": "2.0",
+      "id": 3,
+      "method": "ping",
+      "params": {}
+    },
+    "expected_response": {
+      "note": "Ping may work even before initialize on some implementations"
+    }
+  },
+  {
+    "description": "Now do the proper initialize",
+    "request": {
+      "jsonrpc": "2.0",
+      "id": 4,
+      "method": "initialize",
+      "params": {
+        "protocolVersion": "2025-03-26",
+        "clientInfo": {"name": "test-client", "version": "0.1.0"},
+        "capabilities": {}
+      }
+    },
+    "expected_response": {
+      "has_result": true
+    }
+  },
+  {
+    "description": "Double initialize -- what happens?",
+    "request": {
+      "jsonrpc": "2.0",
+      "id": 5,
+      "method": "initialize",
+      "params": {
+        "protocolVersion": "2025-03-26",
+        "clientInfo": {"name": "test-client", "version": "0.1.0"},
+        "capabilities": {}
+      }
+    },
+    "expected_response": {
+      "note": "Second initialize should either succeed idempotently or return an error"
+    }
+  }
+]

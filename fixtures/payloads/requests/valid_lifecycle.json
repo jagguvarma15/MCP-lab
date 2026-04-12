@@ -1,0 +1,64 @@
+[
+  {
+    "request": {
+      "jsonrpc": "2.0",
+      "id": 1,
+      "method": "initialize",
+      "params": {
+        "protocolVersion": "2025-03-26",
+        "clientInfo": {"name": "test-client", "version": "0.1.0"},
+        "capabilities": {}
+      }
+    },
+    "expected_response": {
+      "has_result": true,
+      "result_contains": ["protocolVersion", "serverInfo", "capabilities"]
+    }
+  },
+  {
+    "request": {
+      "jsonrpc": "2.0",
+      "method": "notifications/initialized",
+      "params": {}
+    },
+    "expected_response": null
+  },
+  {
+    "request": {
+      "jsonrpc": "2.0",
+      "id": 2,
+      "method": "tools/list",
+      "params": {}
+    },
+    "expected_response": {
+      "has_result": true,
+      "result_contains": ["tools"]
+    }
+  },
+  {
+    "request": {
+      "jsonrpc": "2.0",
+      "id": 3,
+      "method": "tools/call",
+      "params": {
+        "name": "echo",
+        "arguments": {"message": "hello from lifecycle test"}
+      }
+    },
+    "expected_response": {
+      "has_result": true,
+      "result_contains": ["content"]
+    }
+  },
+  {
+    "request": {
+      "jsonrpc": "2.0",
+      "id": 4,
+      "method": "ping",
+      "params": {}
+    },
+    "expected_response": {
+      "has_result": true
+    }
+  }
+]

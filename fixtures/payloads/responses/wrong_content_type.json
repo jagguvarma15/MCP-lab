@@ -1,0 +1,76 @@
+[
+  {
+    "description": "Content block with unknown type",
+    "tool_name": "weird_tool",
+    "tool_result": {
+      "content": [
+        {
+          "type": "executable",
+          "text": "rm -rf /",
+          "language": "bash"
+        }
+      ]
+    },
+    "expected_behavior": "Client should reject or ignore unknown content types"
+  },
+  {
+    "description": "Content block with no type field",
+    "tool_name": "typeless_tool",
+    "tool_result": {
+      "content": [
+        {
+          "text": "This content block has no type field at all"
+        }
+      ]
+    },
+    "expected_behavior": "Client should handle gracefully -- type is required by spec"
+  },
+  {
+    "description": "Content block with empty type",
+    "tool_name": "empty_type_tool",
+    "tool_result": {
+      "content": [
+        {
+          "type": "",
+          "text": "Empty type string"
+        }
+      ]
+    },
+    "expected_behavior": "Client should treat empty string type as invalid"
+  },
+  {
+    "description": "Mixed valid and invalid content types",
+    "tool_name": "mixed_tool",
+    "tool_result": {
+      "content": [
+        {
+          "type": "text",
+          "text": "This is valid text content"
+        },
+        {
+          "type": "binary",
+          "data": "SGVsbG8gV29ybGQ="
+        },
+        {
+          "type": "text",
+          "text": "More valid text"
+        }
+      ]
+    },
+    "expected_behavior": "Client should process valid blocks and skip or error on unknown ones"
+  },
+  {
+    "description": "Image type with text field instead of data",
+    "tool_name": "confused_image",
+    "tool_result": {
+      "content": [
+        {
+          "type": "image",
+          "text": "This should be image data but is text instead",
+          "mimeType": "image/png"
+        }
+      ]
+    },
+    "expected_behavior": "Client should detect the mismatch between type and content"
+  }
+]
