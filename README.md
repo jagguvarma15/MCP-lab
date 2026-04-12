@@ -21,7 +21,54 @@ This repo answers those questions with reproducible tests.
 
 ## Architecture
 
-![MCP Lab test harness architecture](docs/assets/mcp_lab_architecture.svg)
+```mermaid
+graph TD
+    subgraph tests ["pytest test suites"]
+        direction LR
+        S(Security)
+        T(Transport)
+        C(Conformance)
+        E(Evaluation)
+        I(Integration)
+    end
+
+    subgraph harness ["Harness layer"]
+        MC["Mock client<br>Sends, captures, logs"]
+        INT["Interceptor<br>Inspect, modify traffic"]
+        REP["Reporter<br>Findings, latency stats"]
+        BEH["Behaviors<br>Faults, delays, drops"]
+        FIX["Fixtures<br>Schemas, payloads"]
+        MC --> INT --> REP
+        MC --> BEH
+    end
+
+    subgraph server ["Mock MCP server|Configurable: honest, adversarial, slow, broken"]
+        direction LR
+        TS["Tool schemas"]
+        TE["Tool execution"]
+        PL["Protocol lifecycle"]
+    end
+
+    tests --> harness
+    harness -- "JSON-RPC stdio" --> server
+
+    style tests fill:#f0ebff,stroke:#7c6bb5
+    style harness fill:#e6f7f0,stroke:#5ba
+    style server fill:#e8f5e8,stroke:#6a6
+    style S fill:#c8b6ff,stroke:#7c6bb5,color:#2d1b69
+    style T fill:#c8b6ff,stroke:#7c6bb5,color:#2d1b69
+    style C fill:#c8b6ff,stroke:#7c6bb5,color:#2d1b69
+    style E fill:#c8b6ff,stroke:#7c6bb5,color:#2d1b69
+    style I fill:#c8b6ff,stroke:#7c6bb5,color:#2d1b69
+    style MC fill:#fff3cd,stroke:#c9a827,color:#664d00
+    style INT fill:#ffe0b2,stroke:#e09040,color:#663c00
+    style REP fill:#fdd,stroke:#d88,color:#600
+    style BEH fill:#e8e8e8,stroke:#999,color:#333
+    style FIX fill:#e8e8e8,stroke:#999,color:#333
+    style TS fill:#eef6ee,stroke:#9c9,color:#2d5a2d
+    style TE fill:#eef6ee,stroke:#9c9,color:#2d5a2d
+    style PL fill:#eef6ee,stroke:#9c9,color:#2d5a2d
+```
 
 ## Repo structure
 
