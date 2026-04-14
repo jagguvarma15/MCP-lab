@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.backends._legacy:_Backend"
+
+[project]
+name = "mcp-lab"
+version = "0.1.0"
+description = "Testing and research harness for the Model Context Protocol (MCP)"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.10"
+dependencies = [
+    "pytest>=7.0",
+]
+
+[project.optional-dependencies]
+http = ["aiohttp>=3.9"]
+fuzz = ["hypothesis>=6.0"]
+all = ["aiohttp>=3.9", "hypothesis>=6.0"]
+
+[tool.setuptools.packages.find]
+include = ["harness*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "fuzz: marks fuzz/property-based tests",
+]
