@@ -72,7 +72,10 @@ class Tool:
 
     def execute(self, arguments: dict) -> Any:
         if self.handler:
-            return self.handler(**arguments)
+            try:
+                return self.handler(**arguments)
+            except Exception as e:
+                return {"error": f"{type(e).__name__}: {e}"}
         return {"echo": arguments}
 
 

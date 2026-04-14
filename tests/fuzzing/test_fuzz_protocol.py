@@ -107,6 +107,9 @@ class TestJsonRpcFieldMutations:
     @settings(max_examples=50, deadline=EXAMPLE_DEADLINE_MS, suppress_health_check=[HealthCheck.too_slow])
     def test_random_valid_structure(self, method, req_id, params):
         """Well-structured requests with random content should never crash the server."""
+        # Notification methods produce no response -- skip them to avoid timeout
+        assume(not method.startswith("notifications/"))
+
         msg = {"jsonrpc": "2.0", "id": req_id, "method": method}
         if params is not None:
             msg["params"] = params
