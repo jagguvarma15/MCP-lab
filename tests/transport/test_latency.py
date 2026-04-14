@@ -9,10 +9,7 @@ Run: pytest tests/transport/ -v
 
 import pytest
 import sys
-import os
 import statistics
-
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../.."))
 
 from harness import MockMCPClient, TestReporter, Finding, Severity
 

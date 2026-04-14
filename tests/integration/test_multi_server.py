@@ -11,9 +11,6 @@ import json
 import time
 import pytest
 import sys
-import os
-
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../.."))
 
 from harness.multi_client import MultiServerClient
 from harness import MockMCPClient
