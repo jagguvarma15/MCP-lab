@@ -14,9 +14,15 @@ Usage:
 
 import json
 import subprocess
+import threading
 import time
 from dataclasses import dataclass, field
 from typing import Any
+
+
+class ReadTimeoutError(TimeoutError):
+    """Raised when reading from the server exceeds the configured timeout."""
+    pass
 
 
 @dataclass
