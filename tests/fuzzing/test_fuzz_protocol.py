@@ -20,9 +20,7 @@ from hypothesis import given, settings, assume, HealthCheck
 from hypothesis import strategies as st
 
 from harness import MockMCPClient, Tool, ToolParam
-
-
-SERVER_CMD = [sys.executable, "-m", "harness.mock_server"]
+from tests.conftest import SERVER_CMD
 
 # Max time per example to prevent test hangs from server issues
 EXAMPLE_DEADLINE_MS = 5000

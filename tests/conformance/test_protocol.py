@@ -13,16 +13,7 @@ import pytest
 import sys
 
 from harness import MockMCPClient, ServerBehaviors
-
-
-SERVER_CMD = f"{sys.executable} -m harness.mock_server"
-
-
-@pytest.fixture
-def client():
-    c = MockMCPClient.over_stdio(SERVER_CMD)
-    yield c
-    c.shutdown()
+from tests.conftest import SERVER_CMD
 
 
 # ---------------------------------------------------------------------------
@@ -32,49 +23,49 @@ def client():
 class TestJsonRpcCompliance:
     """Verify the server speaks valid JSON-RPC 2.0."""
 
-    def test_response_has_jsonrpc_field(self, client):
+    def test_response_has_jsonrpc_field(self, mcp_client):
         """Every response must include jsonrpc: '2.0'."""
-        resp = client.initialize()
+        resp = mcp_client.initialize()
         assert resp.jsonrpc_version == "2.0", (
             f"Expected jsonrpc '2.0', got '{resp.jsonrpc_version}'"
         )
 
-    def test_response_echoes_request_id(self, client):
+    def test_response_echoes_request_id(self, mcp_client):
         """Response ID must match request ID."""
-        resp = client.initialize()
+        resp = mcp_client.initialize()
         assert resp.has_id
         assert resp.id == 1  # First request gets id=1
 
-    def test_no_extra_fields(self, client):
+    def test_no_extra_fields(self, mcp_client):
         """Responses should not contain fields beyond jsonrpc, id, result/error."""
-        resp = client.initialize()
+        resp = mcp_client.initialize()
         extras = resp.extra_fields
         assert len(extras) == 0, (
             f"Response contains unexpected fields: {extras}"
         )
 
-    def test_error_response_format(self, client):
+    def test_error_response_format(self, mcp_client):
         """Errors must follow JSON-RPC error object format."""
-        resp = client.send("nonexistent/method")
+        resp = mcp_client.send("nonexistent/method")
         assert resp.is_error
         err = resp.error
         assert "code" in err, "Error must have 'code' field"
         assert "message" in err, "Error must have 'message' field"
         assert isinstance(err["code"], int), "Error code must be integer"
 
-    def test_notification_gets_no_response(self, client):
+    def test_notification_gets_no_response(self, mcp_client):
         """JSON-RPC notifications (no ID) should not produce a response."""
-        client.initialize()
+        mcp_client.initialize()
         # notifications/initialized is a notification -- no response expected
         # We already sent it in initialize(), so just verify no error
-        client.assert_no_errors()
+        mcp_client.assert_no_errors()
 
-    def test_malformed_request_returns_parse_error(self, client):
+    def test_malformed_request_returns_parse_error(self, mcp_client):
         """Sending invalid JSON should get a -32700 Parse Error."""
-        if client._process and client._process.stdin and client._process.stdout:
-            client._process.stdin.write("NOT VALID JSON\n")
-            client._process.stdin.flush()
-            line = client._process.stdout.readline()
+        if mcp_client._process and mcp_client._process.stdin and mcp_client._process.stdout:
+            mcp_client._process.stdin.write("NOT VALID JSON\n")
+            mcp_client._process.stdin.flush()
+            line = mcp_client._process.stdout.readline()
             resp = json.loads(line)
             assert resp.get("error", {}).get("code") == -32700
 
@@ -86,17 +77,17 @@ class TestJsonRpcCompliance:
 class TestLifecycle:
     """Verify proper MCP initialization and capability negotiation."""
 
-    def test_initialize_returns_server_info(self, client):
+    def test_initialize_returns_server_info(self, mcp_client):
         """Initialize response must include serverInfo and protocolVersion."""
-        resp = client.initialize()
+        resp = mcp_client.initialize()
         result = resp.result
         assert "serverInfo" in result, "Missing serverInfo in initialize response"
         assert "name" in result["serverInfo"], "serverInfo must have name"
         assert "protocolVersion" in result, "Missing protocolVersion"
 
-    def test_initialize_returns_capabilities(self, client):
+    def test_initialize_returns_capabilities(self, mcp_client):
         """Initialize response must declare server capabilities."""
-        resp = client.initialize()
+        resp = mcp_client.initialize()
         result = resp.result
         assert "capabilities" in result, "Missing capabilities in initialize response"
 
@@ -112,16 +103,16 @@ class TestLifecycle:
         finally:
             c.shutdown()
 
-    def test_protocol_version_negotiation(self, client):
+    def test_protocol_version_negotiation(self, mcp_client):
         """Client sends desired version, server responds with supported version."""
-        resp = client.initialize(protocol_version="1999-01-01")
+        resp = mcp_client.initialize(protocol_version="1999-01-01")
         # Server should respond with its own version, not crash
         assert "protocolVersion" in resp.result
 
-    def test_ping(self, client):
+    def test_ping(self, mcp_client):
         """Server must respond to ping."""
-        client.initialize()
-        resp = client.ping()
+        mcp_client.initialize()
+        resp = mcp_client.ping()
         assert not resp.is_error, "Ping should succeed"
 
 
@@ -132,17 +123,17 @@ class TestLifecycle:
 class TestErrorHandling:
     """Verify proper error responses for invalid requests."""
 
-    def test_unknown_method(self, client):
+    def test_unknown_method(self, mcp_client):
         """Unknown method should return -32601 Method Not Found."""
-        client.initialize()
-        resp = client.send("tools/nonexistent")
+        mcp_client.initialize()
+        resp = mcp_client.send("tools/nonexistent")
         assert resp.is_error
         assert resp.error["code"] == -32601
 
-    def test_unknown_tool_call(self, client):
+    def test_unknown_tool_call(self, mcp_client):
         """Calling a non-existent tool should return an error."""
-        client.initialize()
-        resp = client.call_tool("tool_that_does_not_exist", {})
+        mcp_client.initialize()
+        resp = mcp_client.call_tool("tool_that_does_not_exist", {})
         # Could be an error response or a result with an error field
         # The error could surface as a JSON-RPC error OR as an error in the result body
         result_str = json.dumps(resp.result).lower()

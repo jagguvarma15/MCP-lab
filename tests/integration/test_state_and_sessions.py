@@ -13,9 +13,7 @@ import pytest
 import sys
 
 from harness import MockMCPClient
-
-
-SERVER_CMD = [sys.executable, "-m", "harness.mock_server"]
+from tests.conftest import SERVER_CMD
 
 
 # ---------------------------------------------------------------------------

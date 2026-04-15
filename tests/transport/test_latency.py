@@ -12,9 +12,7 @@ import sys
 import statistics
 
 from harness import MockMCPClient, TestReporter, Finding, Severity
-
-
-SERVER_CMD = f"{sys.executable} -m harness.mock_server"
+from tests.conftest import SERVER_CMD
 
 
 # ---------------------------------------------------------------------------

@@ -14,21 +14,7 @@ import sys
 
 from harness.multi_client import MultiServerClient
 from harness import MockMCPClient
-
-
-SERVER_CMD = [sys.executable, "-m", "harness.mock_server"]
-
-
-def make_server_cmd(**behavior_args) -> list[str]:
-    """Build a CLI command for a server with specific behaviors."""
-    cmd = [sys.executable, "-m", "harness.mock_server"]
-    for key, value in behavior_args.items():
-        flag = f"--{key.replace('_', '-')}"
-        if isinstance(value, bool) and value:
-            cmd.append(flag)
-        elif not isinstance(value, bool):
-            cmd.extend([flag, str(value)])
-    return cmd
+from tests.conftest import SERVER_CMD, make_server_cmd
 
 
 # ---------------------------------------------------------------------------
