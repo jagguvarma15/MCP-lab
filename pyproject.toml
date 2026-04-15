@@ -14,10 +14,10 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-http = ["aiohttp>=3.9"]
+http = ["aiohttp>=3.9", "pytest-asyncio>=1.0", "pytest-aiohttp>=1.0"]
 fuzz = ["hypothesis>=6.0"]
 tokens = ["tiktoken>=0.7"]
-all = ["aiohttp>=3.9", "hypothesis>=6.0", "tiktoken>=0.7"]
+all = ["aiohttp>=3.9", "pytest-asyncio>=1.0", "pytest-aiohttp>=1.0", "hypothesis>=6.0", "tiktoken>=0.7"]
 
 [tool.setuptools.packages.find]
 include = ["harness*"]

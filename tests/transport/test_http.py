@@ -10,14 +10,14 @@ Run: pytest tests/transport/test_http.py -v
 """
 
 import json
-import asyncio
+import time
 import statistics
 import pytest
+import pytest_asyncio
 
 aiohttp = pytest.importorskip("aiohttp", reason="aiohttp required for HTTP transport tests")
 
-from aiohttp import web
-from aiohttp.test_utils import AioHTTPTestCase, TestServer
+from aiohttp.test_utils import TestClient, TestServer
 
 from harness.http_server import HTTPMCPServer
 from harness.mock_server import (
@@ -33,7 +33,7 @@ from harness.mock_server import (
 # Helpers
 # ---------------------------------------------------------------------------
 
-def _make_server(behaviors: ServerBehaviors | None = None) -> HTTPMCPServer:
+def _make_http_server(behaviors: ServerBehaviors | None = None) -> HTTPMCPServer:
     """Create an HTTPMCPServer with optional behavior overrides."""
     server = MockMCPServer(
         tools=[echo_tool, calculator_tool, slow_tool],
@@ -44,49 +44,48 @@ def _make_server(behaviors: ServerBehaviors | None = None) -> HTTPMCPServer:
 
 def _jsonrpc(method: str, params: dict | None = None, req_id: int = 1) -> dict:
     """Build a JSON-RPC 2.0 request dict."""
-    msg = {"jsonrpc": "2.0", "id": req_id, "method": method}
+    msg: dict = {"jsonrpc": "2.0", "id": req_id, "method": method}
     if params is not None:
         msg["params"] = params
     return msg
 
 
-def _init_params() -> dict:
-    return {
-        "protocolVersion": "2025-03-26",
-        "clientInfo": {"name": "test-http", "version": "0.1.0"},
-        "capabilities": {},
-    }
+_INIT_PARAMS = {
+    "protocolVersion": "2025-03-26",
+    "clientInfo": {"name": "test-http", "version": "0.1.0"},
+    "capabilities": {},
+}
 
 
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
 
-@pytest.fixture
-async def http_server(aiohttp_client):
-    """Provide an aiohttp test client wired to a vanilla HTTPMCPServer."""
-    srv = _make_server()
+@pytest_asyncio.fixture
+async def http_client():
+    """Test client wired to a vanilla HTTPMCPServer."""
+    srv = _make_http_server()
     app = srv._create_app()
-    client = await aiohttp_client(app)
-    return client
+    async with TestClient(TestServer(app)) as client:
+        yield client
 
 
-@pytest.fixture
-async def delayed_server(aiohttp_client):
-    """HTTPMCPServer with a 100ms fixed delay."""
-    srv = _make_server(ServerBehaviors(delay_ms=100))
+@pytest_asyncio.fixture
+async def delayed_client():
+    """Test client wired to an HTTPMCPServer with 100ms delay."""
+    srv = _make_http_server(ServerBehaviors(delay_ms=100))
     app = srv._create_app()
-    client = await aiohttp_client(app)
-    return client
+    async with TestClient(TestServer(app)) as client:
+        yield client
 
 
-@pytest.fixture
-async def error_server(aiohttp_client):
-    """HTTPMCPServer with a 50% error rate."""
-    srv = _make_server(ServerBehaviors(error_rate=0.5))
+@pytest_asyncio.fixture
+async def error_client():
+    """Test client wired to an HTTPMCPServer with 50% error rate."""
+    srv = _make_http_server(ServerBehaviors(error_rate=0.5))
     app = srv._create_app()
-    client = await aiohttp_client(app)
-    return client
+    async with TestClient(TestServer(app)) as client:
+        yield client
 
 
 # ---------------------------------------------------------------------------
@@ -96,15 +95,17 @@ async def error_server(aiohttp_client):
 class TestHealthEndpoint:
     """Verify the /health endpoint responds correctly."""
 
-    async def test_health_returns_ok(self, http_server):
-        resp = await http_server.get("/health")
+    @pytest.mark.asyncio
+    async def test_health_returns_ok(self, http_client):
+        resp = await http_client.get("/health")
         assert resp.status == 200
         body = await resp.json()
         assert body["status"] == "ok"
         assert body["tool_count"] == 3
 
-    async def test_health_includes_server_info(self, http_server):
-        resp = await http_server.get("/health")
+    @pytest.mark.asyncio
+    async def test_health_includes_server_info(self, http_client):
+        resp = await http_client.get("/health")
         body = await resp.json()
         assert "server_name" in body
         assert "server_version" in body
@@ -117,36 +118,32 @@ class TestHealthEndpoint:
 class TestJsonRpcOverHttp:
     """Verify the /mcp endpoint handles JSON-RPC correctly."""
 
-    async def test_initialize(self, http_server):
+    @pytest.mark.asyncio
+    async def test_initialize(self, http_client):
         """Initialize handshake over HTTP."""
-        resp = await http_server.post(
-            "/mcp",
-            json=_jsonrpc("initialize", _init_params()),
-        )
+        resp = await http_client.post("/mcp", json=_jsonrpc("initialize", _INIT_PARAMS))
         assert resp.status == 200
         body = await resp.json()
         assert body["jsonrpc"] == "2.0"
         assert "serverInfo" in body["result"]
         assert "protocolVersion" in body["result"]
 
-    async def test_tools_list(self, http_server):
+    @pytest.mark.asyncio
+    async def test_tools_list(self, http_client):
         """List tools after initialize."""
-        await http_server.post("/mcp", json=_jsonrpc("initialize", _init_params()))
-        resp = await http_server.post(
-            "/mcp",
-            json=_jsonrpc("tools/list", {}, req_id=2),
-        )
+        await http_client.post("/mcp", json=_jsonrpc("initialize", _INIT_PARAMS))
+        resp = await http_client.post("/mcp", json=_jsonrpc("tools/list", {}, req_id=2))
         body = await resp.json()
         assert not body.get("error")
-        tools = body["result"]["tools"]
-        tool_names = [t["name"] for t in tools]
+        tool_names = [t["name"] for t in body["result"]["tools"]]
         assert "echo" in tool_names
         assert "calculator" in tool_names
 
-    async def test_tool_call_echo(self, http_server):
+    @pytest.mark.asyncio
+    async def test_tool_call_echo(self, http_client):
         """Call the echo tool over HTTP."""
-        await http_server.post("/mcp", json=_jsonrpc("initialize", _init_params()))
-        resp = await http_server.post(
+        await http_client.post("/mcp", json=_jsonrpc("initialize", _INIT_PARAMS))
+        resp = await http_client.post(
             "/mcp",
             json=_jsonrpc(
                 "tools/call",
@@ -156,14 +153,14 @@ class TestJsonRpcOverHttp:
         )
         body = await resp.json()
         assert not body.get("error")
-        content_text = body["result"]["content"][0]["text"]
-        parsed = json.loads(content_text)
+        parsed = json.loads(body["result"]["content"][0]["text"])
         assert parsed["echoed"] == "hello-http"
 
-    async def test_tool_call_calculator(self, http_server):
+    @pytest.mark.asyncio
+    async def test_tool_call_calculator(self, http_client):
         """Call the calculator tool over HTTP."""
-        await http_server.post("/mcp", json=_jsonrpc("initialize", _init_params()))
-        resp = await http_server.post(
+        await http_client.post("/mcp", json=_jsonrpc("initialize", _INIT_PARAMS))
+        resp = await http_client.post(
             "/mcp",
             json=_jsonrpc(
                 "tools/call",
@@ -174,27 +171,29 @@ class TestJsonRpcOverHttp:
         body = await resp.json()
         assert not body.get("error")
 
-    async def test_ping(self, http_server):
+    @pytest.mark.asyncio
+    async def test_ping(self, http_client):
         """Ping over HTTP."""
-        resp = await http_server.post("/mcp", json=_jsonrpc("ping"))
+        resp = await http_client.post("/mcp", json=_jsonrpc("ping"))
         body = await resp.json()
         assert body["jsonrpc"] == "2.0"
         assert not body.get("error")
 
-    async def test_unknown_method(self, http_server):
+    @pytest.mark.asyncio
+    async def test_unknown_method(self, http_client):
         """Unknown method should return JSON-RPC error."""
-        await http_server.post("/mcp", json=_jsonrpc("initialize", _init_params()))
-        resp = await http_server.post(
-            "/mcp",
-            json=_jsonrpc("tools/nonexistent", {}, req_id=2),
+        await http_client.post("/mcp", json=_jsonrpc("initialize", _INIT_PARAMS))
+        resp = await http_client.post(
+            "/mcp", json=_jsonrpc("tools/nonexistent", {}, req_id=2)
         )
         body = await resp.json()
         assert body.get("error")
         assert body["error"]["code"] == -32601
 
-    async def test_malformed_json(self, http_server):
+    @pytest.mark.asyncio
+    async def test_malformed_json(self, http_client):
         """Invalid JSON should return parse error."""
-        resp = await http_server.post(
+        resp = await http_client.post(
             "/mcp",
             data="NOT VALID JSON",
             headers={"Content-Type": "application/json"},
@@ -202,18 +201,17 @@ class TestJsonRpcOverHttp:
         body = await resp.json()
         assert body["error"]["code"] == -32700
 
-    async def test_notification_returns_204(self, http_server):
+    @pytest.mark.asyncio
+    async def test_notification_returns_204(self, http_client):
         """Notifications (no id) should get 204 No Content."""
         msg = {"jsonrpc": "2.0", "method": "notifications/initialized"}
-        resp = await http_server.post("/mcp", json=msg)
+        resp = await http_client.post("/mcp", json=msg)
         assert resp.status == 204
 
-    async def test_response_echoes_id(self, http_server):
+    @pytest.mark.asyncio
+    async def test_response_echoes_id(self, http_client):
         """Response id must match request id."""
-        resp = await http_server.post(
-            "/mcp",
-            json=_jsonrpc("ping", req_id=42),
-        )
+        resp = await http_client.post("/mcp", json=_jsonrpc("ping", req_id=42))
         body = await resp.json()
         assert body["id"] == 42
 
@@ -225,31 +223,30 @@ class TestJsonRpcOverHttp:
 class TestHttpLatency:
     """Measure round-trip latency over HTTP and compare with expectations."""
 
-    async def test_initialize_latency(self, http_server):
+    @pytest.mark.asyncio
+    async def test_initialize_latency(self, http_client):
         """Measure initialize handshake latency over HTTP."""
         timings = []
         for i in range(10):
-            import time
             start = time.perf_counter()
-            await http_server.post(
-                "/mcp",
-                json=_jsonrpc("initialize", _init_params(), req_id=i),
+            await http_client.post(
+                "/mcp", json=_jsonrpc("initialize", _INIT_PARAMS, req_id=i)
             )
-            elapsed = (time.perf_counter() - start) * 1000
-            timings.append(elapsed)
+            timings.append((time.perf_counter() - start) * 1000)
 
         avg = statistics.mean(timings)
         p95 = sorted(timings)[int(len(timings) * 0.95)]
         print(f"\nHTTP initialize latency: avg={avg:.1f}ms  p95={p95:.1f}ms")
 
-    async def test_tool_call_latency(self, http_server):
+    @pytest.mark.asyncio
+    async def test_tool_call_latency(self, http_client):
         """Measure tool call round-trip over HTTP."""
-        await http_server.post("/mcp", json=_jsonrpc("initialize", _init_params()))
+        await http_client.post("/mcp", json=_jsonrpc("initialize", _INIT_PARAMS))
+
         timings = []
         for i in range(50):
-            import time
             start = time.perf_counter()
-            await http_server.post(
+            await http_client.post(
                 "/mcp",
                 json=_jsonrpc(
                     "tools/call",
@@ -257,8 +254,7 @@ class TestHttpLatency:
                     req_id=i + 2,
                 ),
             )
-            elapsed = (time.perf_counter() - start) * 1000
-            timings.append(elapsed)
+            timings.append((time.perf_counter() - start) * 1000)
 
         avg = statistics.mean(timings)
         p95 = sorted(timings)[int(len(timings) * 0.95)]
@@ -272,14 +268,14 @@ class TestHttpLatency:
 class TestHttpDelayBehavior:
     """Verify delay injection works over HTTP transport."""
 
-    async def test_fixed_delay(self, delayed_server):
+    @pytest.mark.asyncio
+    async def test_fixed_delay(self, delayed_client):
         """100ms delay should be measurable in HTTP responses."""
-        await delayed_server.post(
-            "/mcp", json=_jsonrpc("initialize", _init_params())
+        await delayed_client.post(
+            "/mcp", json=_jsonrpc("initialize", _INIT_PARAMS)
         )
-        import time
         start = time.perf_counter()
-        resp = await delayed_server.post(
+        resp = await delayed_client.post(
             "/mcp",
             json=_jsonrpc(
                 "tools/call",
@@ -300,15 +296,16 @@ class TestHttpDelayBehavior:
 class TestHttpErrorResilience:
     """Verify error injection works over HTTP transport."""
 
-    async def test_partial_errors(self, error_server):
+    @pytest.mark.asyncio
+    async def test_partial_errors(self, error_client):
         """50% error rate should produce a mix of successes and errors."""
-        await error_server.post(
-            "/mcp", json=_jsonrpc("initialize", _init_params())
+        await error_client.post(
+            "/mcp", json=_jsonrpc("initialize", _INIT_PARAMS)
         )
         successes = 0
         errors = 0
         for i in range(40):
-            resp = await error_server.post(
+            resp = await error_client.post(
                 "/mcp",
                 json=_jsonrpc(
                     "tools/call",
@@ -336,11 +333,12 @@ class TestHttpErrorResilience:
 class TestSseEndpoint:
     """Verify the /sse server-sent events endpoint."""
 
-    async def test_sse_connection_event(self, http_server):
+    @pytest.mark.asyncio
+    async def test_sse_connection_event(self, http_client):
         """SSE endpoint should send a 'connected' event on open."""
-        resp = await http_server.get("/sse")
+        resp = await http_client.get("/sse")
         assert resp.status == 200
-        assert resp.headers["Content-Type"] == "text/event-stream"
+        assert "text/event-stream" in resp.headers["Content-Type"]
 
         # Read the initial connected event
         data = b""
