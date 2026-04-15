@@ -14,15 +14,10 @@ import pytest
 import sys
 
 from harness import Tool, ToolParam, TestReporter, Finding, Severity
+from harness.tokenizer import estimate_tokens, has_tiktoken
 
 
-# ---------------------------------------------------------------------------
-# Token Estimation (rough, for measurement purposes)
-# ---------------------------------------------------------------------------
-
-def estimate_tokens(text: str) -> int:
-    """Rough token estimate: ~4 chars per token for English text."""
-    return len(text) // 4
+TOKEN_BACKEND = "tiktoken (cl100k_base)" if has_tiktoken() else "heuristic (len/4)"
 
 
 # ---------------------------------------------------------------------------
@@ -41,7 +36,7 @@ class TestContextCost:
         tool = Tool(name="ping", description="Ping")
         schema = json.dumps(tool.to_schema())
         tokens = estimate_tokens(schema)
-        print(f"\nMinimal tool: {len(schema)} chars ~ {tokens} tokens")
+        print(f"\nMinimal tool: {len(schema)} chars ~ {tokens} tokens  [{TOKEN_BACKEND}]")
         assert tokens < 50
 
     def test_realistic_tool_cost(self):

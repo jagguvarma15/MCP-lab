@@ -16,7 +16,8 @@ dependencies = [
 [project.optional-dependencies]
 http = ["aiohttp>=3.9"]
 fuzz = ["hypothesis>=6.0"]
-all = ["aiohttp>=3.9", "hypothesis>=6.0"]
+tokens = ["tiktoken>=0.7"]
+all = ["aiohttp>=3.9", "hypothesis>=6.0", "tiktoken>=0.7"]
 
 [tool.setuptools.packages.find]
 include = ["harness*"]

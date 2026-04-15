@@ -26,6 +26,7 @@ from harness.config import (
     list_schemas,
 )
 from harness.multi_client import MultiServerClient, ServerInfo
+from harness.tokenizer import estimate_tokens, has_tiktoken
 
 __all__ = [
     # mock_server
@@ -62,4 +63,7 @@ __all__ = [
     "load_payload_sequence",
     "list_server_presets",
     "list_schemas",
+    # tokenizer
+    "estimate_tokens",
+    "has_tiktoken",
 ]
