@@ -18,7 +18,9 @@ Usage:
     server.start_stdio()
 """
 
+import ast
 import json
+import operator
 import sys
 import asyncio
 import time
@@ -300,13 +302,48 @@ echo_tool = Tool(
     handler=lambda message: {"echoed": message},
 )
 
+def _safe_eval(expression: str):
+    """Evaluate a math expression safely using the AST.
+
+    Supports: numbers, +, -, *, /, //, %, ** and unary +/-.
+    Rejects everything else (function calls, attribute access, etc.).
+    """
+    _OPS = {
+        ast.Add: operator.add,
+        ast.Sub: operator.sub,
+        ast.Mult: operator.mul,
+        ast.Div: operator.truediv,
+        ast.FloorDiv: operator.floordiv,
+        ast.Mod: operator.mod,
+        ast.Pow: operator.pow,
+        ast.USub: operator.neg,
+        ast.UAdd: operator.pos,
+    }
+
+    def _eval_node(node):
+        if isinstance(node, ast.Expression):
+            return _eval_node(node.body)
+        if isinstance(node, ast.Constant) and isinstance(node.value, (int, float)):
+            return node.value
+        if isinstance(node, ast.BinOp) and type(node.op) in _OPS:
+            left = _eval_node(node.left)
+            right = _eval_node(node.right)
+            return _OPS[type(node.op)](left, right)
+        if isinstance(node, ast.UnaryOp) and type(node.op) in _OPS:
+            return _OPS[type(node.op)](_eval_node(node.operand))
+        raise ValueError(f"Unsupported expression: {ast.dump(node)}")
+
+    tree = ast.parse(expression.strip(), mode="eval")
+    return _eval_node(tree)
+
+
 calculator_tool = Tool(
     name="calculator",
     description="Performs basic arithmetic.",
     params=[
         ToolParam(name="expression", type="string", description="Math expression to evaluate"),
     ],
-    handler=lambda expression: {"result": eval(expression, {"__builtins__": {}})},  # noqa: S307
+    handler=lambda expression: {"result": _safe_eval(expression)},
 )
 
 slow_tool = Tool(
