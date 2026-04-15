@@ -13,7 +13,7 @@ Modules:
 
 from harness.mock_server import MockMCPServer, Tool, ToolParam, ServerBehaviors
 from harness.mock_server import echo_tool, calculator_tool, slow_tool
-from harness.mock_client import MockMCPClient, MCPResponse, RequestLog, ReadTimeoutError
+from harness.mock_client import MockMCPClient, MCPResponse, RequestLog, ReadTimeoutError, IDMismatchError
 from harness.async_client import AsyncMockMCPClient, AsyncMultiServerClient
 from harness.interceptor import MCPInterceptor, InterceptedMessage
 from harness.reporter import TestReporter, Finding, Severity, LatencyProfile
@@ -42,6 +42,7 @@ __all__ = [
     "MCPResponse",
     "RequestLog",
     "ReadTimeoutError",
+    "IDMismatchError",
     # async_client
     "AsyncMockMCPClient",
     "AsyncMultiServerClient",

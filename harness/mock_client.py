@@ -25,6 +25,16 @@ class ReadTimeoutError(TimeoutError):
     pass
 
 
+class IDMismatchError(Exception):
+    """Raised when a response ID does not match the request ID."""
+    def __init__(self, expected_id, actual_id):
+        self.expected_id = expected_id
+        self.actual_id = actual_id
+        super().__init__(
+            f"Response ID mismatch: expected {expected_id!r}, got {actual_id!r}"
+        )
+
+
 @dataclass
 class MCPResponse:
     """Parsed MCP response with timing metadata."""
@@ -57,6 +67,14 @@ class MCPResponse:
         return self.raw.get("id")
 
     @property
+    def id_matches_request(self) -> bool:
+        """True if the response ID matches the request ID."""
+        if "id" not in self.request:
+            # Notification -- no ID to match
+            return True
+        return self.raw.get("id") == self.request.get("id")
+
+    @property
     def extra_fields(self) -> set[str]:
         """Fields beyond the standard jsonrpc, id, result/error."""
         known = {"jsonrpc", "id", "result", "error"}
@@ -85,11 +103,12 @@ class MockMCPClient:
 
     DEFAULT_TIMEOUT: float = 5.0
 
-    def __init__(self, timeout: float | None = DEFAULT_TIMEOUT):
+    def __init__(self, timeout: float | None = DEFAULT_TIMEOUT, strict_id: bool = False):
         self._next_id = 1
         self._log: list[RequestLog] = []
         self._process: subprocess.Popen | None = None
         self.timeout = timeout
+        self.strict_id = strict_id
 
     # -- Factory methods ----------------------------------------------------
 
@@ -98,6 +117,7 @@ class MockMCPClient:
         cls,
         command: str | list[str],
         timeout: float | None = DEFAULT_TIMEOUT,
+        strict_id: bool = False,
         **kwargs,
     ) -> "MockMCPClient":
         """Connect to an MCP server via stdio.
@@ -105,8 +125,9 @@ class MockMCPClient:
         Args:
             command: Server command to spawn.
             timeout: Read timeout in seconds. None disables the timeout.
+            strict_id: If True, raise IDMismatchError on ID mismatches.
         """
-        client = cls(timeout=timeout)
+        client = cls(timeout=timeout, strict_id=strict_id)
         client._process = subprocess.Popen(
             command if isinstance(command, list) else command.split(),
             stdin=subprocess.PIPE,
@@ -192,6 +213,12 @@ class MockMCPClient:
         response = MCPResponse(raw=raw_response, elapsed_ms=elapsed, request=message)
         log = RequestLog(request=message, response=response, sent_at=sent_at)
         self._log.append(log)
+
+        # Verify request/response ID correlation
+        if "id" in message and not response.id_matches_request:
+            if self.strict_id:
+                raise IDMismatchError(message["id"], response.id)
+
         return response
 
     def send(self, method: str, params: dict | None = None) -> MCPResponse | None:
@@ -273,6 +300,16 @@ class MockMCPClient:
     @property
     def errors(self) -> list[RequestLog]:
         return [entry for entry in self._log if entry.error or (entry.response and entry.response.is_error)]
+
+    @property
+    def mismatched_ids(self) -> list[RequestLog]:
+        """Entries where the response ID did not match the request ID."""
+        return [
+            entry for entry in self._log
+            if entry.response is not None
+            and "id" in entry.request
+            and not entry.response.id_matches_request
+        ]
 
     def assert_no_errors(self):
         errs = self.errors
