@@ -11,6 +11,7 @@ Usage:
 
 import argparse
 import json
+import logging
 import signal
 import sys
 import os
@@ -19,7 +20,9 @@ import statistics
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from harness import MockMCPClient, TestReporter, Finding, Severity
+from harness import MockMCPClient, TestReporter, Finding, Severity, configure_logging
+
+logger = logging.getLogger("profile_server")
 
 
 def run_conformance(client: MockMCPClient, reporter: TestReporter):
@@ -205,15 +208,25 @@ def main():
         default=0,
         help="Global timeout in seconds for the entire profiling run (0 disables)",
     )
+    parser.add_argument(
+        "--log-level",
+        default="INFO",
+        help="Log level (DEBUG shows full protocol traces; WARNING silences progress)",
+    )
+    parser.add_argument(
+        "--log-file",
+        default=None,
+        help="Optional path to mirror logs to a file alongside stderr",
+    )
 
     args = parser.parse_args()
+    configure_logging(args.log_level, args.log_file)
     reporter = TestReporter(suite_name=f"profile: {args.server_command}")
 
-    print(f"Profiling server: {args.server_command}")
-    print(f"Running: {', '.join(args.tests)}")
+    logger.info("Profiling server: %s", args.server_command)
+    logger.info("Running: %s", ", ".join(args.tests))
     if args.timeout > 0:
-        print(f"Global timeout: {args.timeout}s")
-    print()
+        logger.info("Global timeout: %ss", args.timeout)
 
     if args.timeout > 0:
         def _on_timeout(signum, frame):
@@ -226,23 +239,23 @@ def main():
     try:
         with MockMCPClient.over_stdio(args.server_command) as client:
             if "conformance" in args.tests:
-                print("Running conformance checks...")
+                logger.info("Running conformance checks...")
                 run_conformance(client, reporter)
 
             if "latency" in args.tests:
-                print("Running latency profiling...")
+                logger.info("Running latency profiling...")
                 # Re-initialize if conformance already initialized
                 if "conformance" not in args.tests:
                     client.initialize()
                 run_latency(client, reporter)
 
             if "security" in args.tests:
-                print("Running security checks...")
+                logger.info("Running security checks...")
                 if "conformance" not in args.tests and "latency" not in args.tests:
                     client.initialize()
                 run_security(client, reporter)
     except TimeoutError as e:
-        print(f"\n[!] {e}", file=sys.stderr)
+        logger.error("%s", e)
         reporter.add_finding(Finding(
             title="Profiling timed out",
             description=str(e),

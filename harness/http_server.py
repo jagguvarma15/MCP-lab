@@ -18,8 +18,11 @@ Endpoints:
 
 import json
 import asyncio
+import logging
 import time
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 try:
     from aiohttp import web
@@ -164,7 +167,7 @@ class HTTPMCPServer:
         await self._runner.setup()
         site = web.TCPSite(self._runner, self.host, self.port)
         await site.start()
-        print(f"HTTP MCP Server running at http://{self.host}:{self.port}")
+        logger.info("HTTP MCP Server running at http://%s:%s", self.host, self.port)
 
     async def stop(self):
         """Stop the HTTP server."""
@@ -195,8 +198,21 @@ if __name__ == "__main__":
     parser.add_argument("--delay", type=int, default=0, help="Response delay in ms")
     parser.add_argument("--error-rate", type=float, default=0.0, help="Error probability")
     parser.add_argument("--drop-rate", type=float, default=0.0, help="Drop probability")
+    parser.add_argument(
+        "--log-level",
+        default="INFO",
+        help="Log level (DEBUG/INFO/WARNING/ERROR/CRITICAL)",
+    )
+    parser.add_argument(
+        "--log-file",
+        default=None,
+        help="Optional log file path (in addition to stderr)",
+    )
 
     args = parser.parse_args()
+
+    from harness.logging_config import configure_logging
+    configure_logging(args.log_level, args.log_file)
 
     behaviors = ServerBehaviors(
         delay_ms=args.delay,

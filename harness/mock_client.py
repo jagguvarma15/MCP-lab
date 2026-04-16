@@ -191,6 +191,7 @@ class MockMCPClient:
         sent_at = time.time()
         raw_msg = json.dumps(message) + "\n"
 
+        logger.debug("-> %s", raw_msg.rstrip())
         self._process.stdin.write(raw_msg)
         self._process.stdin.flush()
 
@@ -199,9 +200,12 @@ class MockMCPClient:
         elapsed = (time.monotonic() - start) * 1000
 
         if not line or not line.strip():
+            logger.debug("<- <empty> (%.1fms)", elapsed)
             log = RequestLog(request=message, response=None, sent_at=sent_at, error="Empty response")
             self._log.append(log)
             return None
+
+        logger.debug("<- %s (%.1fms)", line.rstrip(), elapsed)
 
         try:
             raw_response = json.loads(line)
@@ -243,7 +247,9 @@ class MockMCPClient:
             "params": params or {},
         }
         if self._process and self._process.stdin:
-            self._process.stdin.write(json.dumps(msg) + "\n")
+            raw = json.dumps(msg) + "\n"
+            logger.debug("-> %s (notification)", raw.rstrip())
+            self._process.stdin.write(raw)
             self._process.stdin.flush()
 
     # -- MCP protocol methods -----------------------------------------------

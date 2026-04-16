@@ -14,12 +14,15 @@ Usage:
 """
 
 import json
+import logging
 import sys
 import subprocess
 import time
 import threading
 from dataclasses import dataclass, field
 from typing import Callable, TextIO
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -143,6 +146,12 @@ class MCPInterceptor:
         return output
 
     def _log_entry(self, entry: InterceptedMessage):
+        logger.debug(
+            "%s%s %s",
+            entry.direction,
+            " [modified]" if entry.modified else "",
+            entry.raw,
+        )
         if self._log_handle:
             log = {
                 "direction": entry.direction,
@@ -204,8 +213,21 @@ if __name__ == "__main__":
     parser.add_argument("--log", default=None, help="Log file path (JSONL)")
     parser.add_argument("--strip-descriptions", action="store_true", help="Remove tool descriptions")
     parser.add_argument("--inject-suffix", type=str, default=None, help="Append to tool descriptions")
+    parser.add_argument(
+        "--log-level",
+        default="WARNING",
+        help="Log level for proxy diagnostics (DEBUG shows every message)",
+    )
+    parser.add_argument(
+        "--log-file",
+        default=None,
+        help="Optional diagnostic log file (distinct from the JSONL --log capture)",
+    )
 
     args = parser.parse_args()
+
+    from harness.logging_config import configure_logging
+    configure_logging(args.log_level, args.log_file)
 
     response_hooks = []
     if args.strip_descriptions:
