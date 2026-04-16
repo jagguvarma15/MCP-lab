@@ -113,6 +113,103 @@ python -m harness.interceptor --target stdio --log traffic.jsonl &
 pytest tests/transport/ -v
 ```
 
+## Example output
+
+### `pytest` — invariants, pass/fail per scenario
+
+```text
+$ pytest tests/security/test_trust_boundaries.py -v
+============================= test session starts =============================
+collected 11 items
+
+tests/security/test_trust_boundaries.py::TestToolDescriptionInjection::test_description_with_prompt_injection  PASSED [  9%]
+tests/security/test_trust_boundaries.py::TestToolDescriptionInjection::test_description_with_hidden_instructions PASSED [ 18%]
+tests/security/test_trust_boundaries.py::TestToolDescriptionInjection::test_description_length_bomb            PASSED [ 27%]
+tests/security/test_trust_boundaries.py::TestToolNameShadowing::test_shadow_tool_registered                    PASSED [ 36%]
+tests/security/test_trust_boundaries.py::TestToolNameShadowing::test_shadow_tool_captures_input                PASSED [ 45%]
+tests/security/test_trust_boundaries.py::TestResultPoisoning::test_result_with_embedded_instructions           PASSED [ 54%]
+tests/security/test_trust_boundaries.py::TestResultPoisoning::test_result_mimics_system_message                PASSED [ 63%]
+tests/security/test_trust_boundaries.py::TestSchemaManipulation::test_schema_with_extra_fields                 PASSED [ 72%]
+tests/security/test_trust_boundaries.py::TestSchemaManipulation::test_recursive_schema                         PASSED [ 81%]
+tests/security/test_trust_boundaries.py::TestSchemaManipulation::test_schema_type_confusion                    PASSED [ 90%]
+tests/security/test_trust_boundaries.py::TestAuthLeakage::test_tool_requesting_credentials                     PASSED [100%]
+
+============================== 11 passed in 0.35s =============================
+```
+
+Each test name is a claim; a green bar means that claim holds against the
+mock server. A red bar is a finding worth writing up.
+
+### `profile_server.py` — aggregated findings + latency against any stdio MCP server
+
+```text
+$ python scripts/profile_server.py "python -m harness.mock_server" --log-level WARNING
+
+============================================================
+  MCP Lab Report: profile: python -m harness.mock_server
+============================================================
+
+  [INFO] (1 findings)
+    - Tools listed
+      Server exposes 3 tools
+
+  LATENCY PROFILES
+  Label                              Mean      P50      P95      P99      n
+  ----------------------------------------------------------------------
+  tools/list                         0.0ms     0.0ms     0.1ms     0.1ms     20
+  tools/call (echo)                  0.0ms     0.0ms     0.1ms     0.1ms     20
+  ping                               0.0ms     0.0ms     0.1ms     0.1ms     20
+
+============================================================
+
+JSON report saved to: profile_results.json
+```
+
+Point it at an adversarial server and the categories come alive:
+
+```text
+$ python scripts/profile_server.py \
+    "python -m harness.mock_server --inject-description PROMPT_INJECTION --delay 25" \
+    --log-level WARNING
+
+  LATENCY PROFILES
+  Label                              Mean      P50      P95      P99      n
+  ----------------------------------------------------------------------
+  tools/list                        29.2ms    30.2ms    30.7ms    30.7ms     20
+  tools/call (echo)                 28.8ms    28.9ms    30.5ms    30.5ms     20
+  ping                              28.6ms    29.8ms    30.5ms    30.5ms     20
+```
+
+### The JSON report (machine-readable, for CI trend tracking)
+
+```json
+{
+  "suite": "profile: python -m harness.mock_server",
+  "findings": [
+    {
+      "title": "Tools listed",
+      "description": "Server exposes 3 tools",
+      "severity": "info",
+      "category": "conformance",
+      "evidence": {
+        "tool_names": ["echo", "calculator", "slow_operation"]
+      }
+    }
+  ],
+  "latency": {
+    "tools/list":        { "count": 20, "mean_ms": 0.05, "p95_ms": 0.07, "p99_ms": 0.07 },
+    "tools/call (echo)": { "count": 20, "mean_ms": 0.04, "p95_ms": 0.06, "p99_ms": 0.06 },
+    "ping":              { "count": 20, "mean_ms": 0.04, "p95_ms": 0.05, "p99_ms": 0.05 }
+  },
+  "summary": { "total_findings": 1, "critical": 0, "warnings": 0, "info": 1 }
+}
+```
+
+Severities escalate from `info` (observations) to `warning` (suspicious, e.g.
+extra JSON-RPC fields, suspicious tool parameter names) to `critical`
+(handshake failure, wrong JSON-RPC version). `scripts/generate_report.py`
+aggregates multiple JSON reports into a Markdown roll-up.
+
 ## Test areas
 
 ### Security
