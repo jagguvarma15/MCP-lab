@@ -25,6 +25,16 @@ include = ["harness*"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 markers = [
-    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
-    "fuzz: marks fuzz/property-based tests",
+    # Category markers (auto-applied by tests/conftest.py based on test path)
+    "conformance: JSON-RPC / MCP spec compliance tests",
+    "security: trust-boundary, auth, and credential-leak tests",
+    "fuzz: property-based / mutation fuzz tests",
+    "integration: multi-server, session, and cross-component tests",
+    "transport: stdio and HTTP transport tests",
+    "evaluation: context-cost and schema-evaluation tests",
+    # Speed markers
+    "slow: tests that take >1s (deselect with '-m \"not slow\"')",
+    # Dependency markers (useful for selecting subsets when extras are missing)
+    "requires_http: needs the [http] extra (aiohttp, pytest-asyncio)",
+    "requires_hypothesis: needs the [fuzz] extra (hypothesis)",
 ]
