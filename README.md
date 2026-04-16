@@ -160,9 +160,10 @@ Each test is:
 
 ## Contributing
 
-Found a weird MCP behavior? File an issue with:
-- What you observed
-- Which client/server was involved
-- A minimal reproduction
+See [CONTRIBUTING.md](CONTRIBUTING.md) for a walk-through of the
+fixture-driven workflow — how to add a server preset, a test class, and a
+reusable fixture, plus the marker conventions and PR checklist.
 
+Short version: found a weird MCP behavior? File an issue with what you
+observed, which client/server was involved, and a minimal reproduction.
 Pull requests welcome for new test cases in any area.
