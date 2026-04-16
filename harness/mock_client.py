@@ -13,11 +13,14 @@ Usage:
 """
 
 import json
+import logging
 import subprocess
 import threading
 import time
 from dataclasses import dataclass, field
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 
 class ReadTimeoutError(TimeoutError):
