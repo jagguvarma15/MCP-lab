@@ -1,0 +1,449 @@
+#!/usr/bin/env bash
+# ──────────────────────────────────────────────────────────────────────
+# mcplab — CLI for MCP Lab: test, profile, and audit MCP servers
+# ──────────────────────────────────────────────────────────────────────
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# ── Colors & Symbols ─────────────────────────────────────────────────
+if [[ -t 1 ]]; then
+    BOLD="\033[1m"
+    DIM="\033[2m"
+    RESET="\033[0m"
+    RED="\033[31m"
+    GREEN="\033[32m"
+    YELLOW="\033[33m"
+    BLUE="\033[34m"
+    MAGENTA="\033[35m"
+    CYAN="\033[36m"
+    WHITE="\033[37m"
+    BG_BLACK="\033[40m"
+    PASS="${GREEN}PASS${RESET}"
+    FAIL="${RED}FAIL${RESET}"
+    WARN="${YELLOW}WARN${RESET}"
+    INFO="${CYAN}INFO${RESET}"
+    DOT="${DIM}·${RESET}"
+    ARROW="${DIM}→${RESET}"
+    CHECK="${GREEN}✓${RESET}"
+    CROSS="${RED}✗${RESET}"
+    BULLET="${DIM}▸${RESET}"
+else
+    BOLD="" DIM="" RESET=""
+    RED="" GREEN="" YELLOW="" BLUE="" MAGENTA="" CYAN="" WHITE="" BG_BLACK=""
+    PASS="PASS" FAIL="FAIL" WARN="WARN" INFO="INFO"
+    DOT="." ARROW="->" CHECK="+" CROSS="x" BULLET=">"
+fi
+
+# ── Banner ────────────────────────────────────────────────────────────
+show_banner() {
+    echo -e ""
+    echo -e "  ${BOLD}${CYAN}╔╦╗╔═╗╔═╗  ╦  ╔═╗╔╗ ${RESET}"
+    echo -e "  ${BOLD}${CYAN}║║║║  ╠═╝  ║  ╠═╣╠╩╗${RESET}"
+    echo -e "  ${BOLD}${CYAN}╩ ╩╚═╝╩    ╩═╝╩ ╩╚═╝${RESET}"
+    echo -e "  ${DIM}MCP Server Test Harness${RESET}  ${DIM}v0.1.0${RESET}"
+    echo -e ""
+}
+
+# ── Help ──────────────────────────────────────────────────────────────
+show_help() {
+    show_banner
+    echo -e "  ${BOLD}Usage:${RESET}  mcplab ${CYAN}<command>${RESET} [options]"
+    echo -e ""
+    echo -e "  ${BOLD}Commands:${RESET}"
+    echo -e "    ${CYAN}profile${RESET}  ${DIM}<server-cmd>${RESET}    Profile a real MCP server (conformance + latency + security)"
+    echo -e "    ${CYAN}test${RESET}     ${DIM}[suite]${RESET}         Run test suites against the mock harness"
+    echo -e "    ${CYAN}record${RESET}   ${DIM}<server-cmd>${RESET}    Record MCP traffic to a JSONL file"
+    echo -e "    ${CYAN}report${RESET}   ${DIM}<json-file>${RESET}     Render a JSON report as a formatted terminal report"
+    echo -e "    ${CYAN}tools${RESET}    ${DIM}<server-cmd>${RESET}    List all tools exposed by an MCP server"
+    echo -e "    ${CYAN}help${RESET}                     Show this help"
+    echo -e ""
+    echo -e "  ${BOLD}Test Suites:${RESET}"
+    echo -e "    ${DIM}all${RESET}          Run everything                  ${DIM}mcplab test${RESET}"
+    echo -e "    ${DIM}conformance${RESET}  JSON-RPC / MCP spec compliance  ${DIM}mcplab test conformance${RESET}"
+    echo -e "    ${DIM}security${RESET}     Trust boundaries & injection    ${DIM}mcplab test security${RESET}"
+    echo -e "    ${DIM}transport${RESET}    Latency & error resilience      ${DIM}mcplab test transport${RESET}"
+    echo -e "    ${DIM}evaluation${RESET}   Context window token costs      ${DIM}mcplab test evaluation${RESET}"
+    echo -e "    ${DIM}integration${RESET}  Multi-server & sessions         ${DIM}mcplab test integration${RESET}"
+    echo -e "    ${DIM}fuzz${RESET}         Property-based fuzzing          ${DIM}mcplab test fuzz${RESET}"
+    echo -e ""
+    echo -e "  ${BOLD}Examples:${RESET}"
+    echo -e "    ${DIM}# Profile the official filesystem server${RESET}"
+    echo -e "    mcplab profile \"npx -y @modelcontextprotocol/server-filesystem /tmp\""
+    echo -e ""
+    echo -e "    ${DIM}# List tools from a server${RESET}"
+    echo -e "    mcplab tools \"npx -y @modelcontextprotocol/server-memory\""
+    echo -e ""
+    echo -e "    ${DIM}# Run only security tests${RESET}"
+    echo -e "    mcplab test security"
+    echo -e ""
+    echo -e "    ${DIM}# Record traffic for analysis${RESET}"
+    echo -e "    mcplab record \"python my_server.py\" -o traffic.jsonl"
+    echo -e ""
+}
+
+# ── Utilities ─────────────────────────────────────────────────────────
+find_python() {
+    for cmd in python3 python; do
+        if command -v "$cmd" &>/dev/null; then
+            echo "$cmd"
+            return
+        fi
+    done
+    echo -e "  ${CROSS} ${RED}Python not found. Install Python 3.10+${RESET}" >&2
+    exit 1
+}
+
+divider() {
+    echo -e "  ${DIM}$(printf '─%.0s' {1..60})${RESET}"
+}
+
+section() {
+    echo -e ""
+    echo -e "  ${BOLD}${WHITE}$1${RESET}"
+    divider
+}
+
+# ── Command: profile ──────────────────────────────────────────────────
+cmd_profile() {
+    if [[ $# -lt 1 ]]; then
+        echo -e "  ${CROSS} Usage: mcplab profile ${CYAN}<server-command>${RESET} [--timeout N] [--json output.json]"
+        exit 1
+    fi
+
+    local server_cmd="$1"
+    shift
+
+    local timeout=60
+    local json_out=""
+    local suites="conformance latency security"
+
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --timeout) timeout="$2"; shift 2 ;;
+            --json)    json_out="$2"; shift 2 ;;
+            --only)    suites="$2"; shift 2 ;;
+            *)         echo -e "  ${CROSS} Unknown option: $1"; exit 1 ;;
+        esac
+    done
+
+    show_banner
+    section "Profiling Server"
+    echo -e "  ${BULLET} Command:  ${CYAN}${server_cmd}${RESET}"
+    echo -e "  ${BULLET} Suites:   ${suites}"
+    echo -e "  ${BULLET} Timeout:  ${timeout}s"
+    echo -e ""
+
+    local PY
+    PY="$(find_python)"
+
+    local tmpfile
+    tmpfile="$(mktemp /tmp/mcplab-profile-XXXXXX.json)"
+    trap "rm -f '$tmpfile'" EXIT
+
+    # Run the profiler, capture JSON output, stream the log
+    "$PY" "$SCRIPT_DIR/scripts/profile_server.py" \
+        "$server_cmd" \
+        --output "$tmpfile" \
+        --tests $suites \
+        --timeout "$timeout" \
+        --log-level WARNING 2>&1 | while IFS= read -r line; do
+            echo -e "  ${DIM}${line}${RESET}"
+        done
+
+    # Parse and render the JSON report
+    if [[ -f "$tmpfile" ]]; then
+        render_report "$tmpfile"
+        if [[ -n "$json_out" ]]; then
+            cp "$tmpfile" "$json_out"
+            echo -e ""
+            echo -e "  ${CHECK} JSON report saved to ${CYAN}${json_out}${RESET}"
+        fi
+    fi
+}
+
+# ── Command: tools ────────────────────────────────────────────────────
+cmd_tools() {
+    if [[ $# -lt 1 ]]; then
+        echo -e "  ${CROSS} Usage: mcplab tools ${CYAN}<server-command>${RESET}"
+        exit 1
+    fi
+
+    local server_cmd="$1"
+    local PY
+    PY="$(find_python)"
+
+    show_banner
+    section "Tool Enumeration"
+    echo -e "  ${BULLET} Server: ${CYAN}${server_cmd}${RESET}"
+    echo -e ""
+
+    "$PY" -c "
+import sys, json, os
+sys.path.insert(0, '$SCRIPT_DIR')
+from harness import MockMCPClient, estimate_tokens
+from harness.mock_client import ReadTimeoutError
+
+try:
+    with MockMCPClient.over_stdio('''$server_cmd'''.split(), timeout=15) as client:
+        resp = client.initialize()
+        if resp is None or resp.is_error:
+            print('  INIT_FAIL')
+            sys.exit(1)
+
+        info = resp.result.get('serverInfo', {})
+        caps = list(resp.result.get('capabilities', {}).keys())
+        print(f'SERVER_INFO|{info.get(\"name\",\"?\")}|{info.get(\"version\",\"?\")}|{\",\".join(caps)}')
+
+        tools_resp = client.list_tools()
+        if tools_resp is None or tools_resp.is_error:
+            print('  NO_TOOLS')
+            sys.exit(1)
+
+        tools = tools_resp.result.get('tools', [])
+        total_tokens = 0
+        for t in tools:
+            name = t.get('name', '?')
+            desc = t.get('description', '')[:70]
+            props = list(t.get('inputSchema', {}).get('properties', {}).keys())
+            req = t.get('inputSchema', {}).get('required', [])
+            tokens = estimate_tokens(json.dumps(t))
+            total_tokens += tokens
+            print(f'TOOL|{name}|{desc}|{\",\".join(props)}|{\",\".join(req)}|{tokens}')
+
+        print(f'TOTAL|{len(tools)}|{total_tokens}')
+except ReadTimeoutError:
+    print('  TIMEOUT')
+    sys.exit(1)
+except Exception as e:
+    print(f'  ERROR|{e}')
+    sys.exit(1)
+" 2>/dev/null | while IFS='|' read -r tag a b c d e; do
+        case "$tag" in
+            SERVER_INFO)
+                echo -e "  ${CHECK} Connected: ${BOLD}${a}${RESET} ${DIM}v${b}${RESET}"
+                echo -e "  ${BULLET} Capabilities: ${DIM}${c}${RESET}"
+                echo -e ""
+                printf "  ${BOLD}%-28s %-6s  %s${RESET}\n" "TOOL" "TOKENS" "DESCRIPTION"
+                divider
+                ;;
+            TOOL)
+                printf "  ${CYAN}%-28s${RESET} ${DIM}~%-4s${RESET}  %s\n" "$a" "$e" "$b"
+                if [[ -n "$c" ]]; then
+                    echo -e "  ${DIM}  params: [${c}]  required: [${d}]${RESET}"
+                fi
+                ;;
+            TOTAL)
+                echo -e ""
+                divider
+                echo -e "  ${BOLD}${a} tools${RESET} ${DOT} ${BOLD}~${b} tokens${RESET} total ${DIM}($(( b * 100 / 200000 )).$(( b * 1000 / 200000 % 10 ))% of 200k context)${RESET}"
+                ;;
+            *INIT_FAIL*)
+                echo -e "  ${CROSS} ${RED}Server failed to initialize${RESET}" ;;
+            *TIMEOUT*)
+                echo -e "  ${CROSS} ${RED}Server timed out${RESET}" ;;
+            *NO_TOOLS*)
+                echo -e "  ${CROSS} ${YELLOW}Server has no tools${RESET}" ;;
+            *ERROR*)
+                echo -e "  ${CROSS} ${RED}${a}${RESET}" ;;
+        esac
+    done
+    echo ""
+}
+
+# ── Render a JSON report ──────────────────────────────────────────────
+render_report() {
+    local json_file="$1"
+    local PY
+    PY="$(find_python)"
+
+    "$PY" -c "
+import json, sys
+
+with open('$json_file') as f:
+    r = json.load(f)
+
+suite = r.get('suite', 'unknown')
+s = r.get('summary', {})
+findings = r.get('findings', [])
+latency = r.get('latency', {})
+
+print(f'SUITE|{suite}')
+print(f'SUMMARY|{s.get(\"total_findings\",0)}|{s.get(\"critical\",0)}|{s.get(\"warnings\",0)}|{s.get(\"info\",0)}')
+
+for f in findings:
+    sev = f.get('severity','info').upper()
+    title = f.get('title','')
+    desc = f.get('description','')
+    rec = f.get('recommendation','')
+    ev = f.get('evidence',{})
+    tools_list = ','.join(ev.get('tool_names',[])) if 'tool_names' in ev else ''
+    print(f'FINDING|{sev}|{title}|{desc}|{rec}|{tools_list}')
+
+for label, p in latency.items():
+    print(f'LATENCY|{label}|{p.get(\"mean_ms\",0):.1f}|{p.get(\"median_ms\",0):.1f}|{p.get(\"p95_ms\",0):.1f}|{p.get(\"p99_ms\",0):.1f}|{p.get(\"count\",0)}')
+" 2>/dev/null | while IFS='|' read -r tag a b c d e f; do
+        case "$tag" in
+            SUITE)
+                section "Report: ${a}"
+                ;;
+            SUMMARY)
+                local total="$a" crit="$b" warns="$c" infos="$d"
+                echo -e "  ${BULLET} Findings: ${BOLD}${total}${RESET}  ${DIM}(${RESET}"
+                [[ "$crit" != "0" ]] && echo -ne "${RED}${crit} critical${RESET} "
+                [[ "$warns" != "0" ]] && echo -ne "${YELLOW}${warns} warnings${RESET} "
+                [[ "$infos" != "0" ]] && echo -ne "${CYAN}${infos} info${RESET}"
+                echo -e "${DIM})${RESET}"
+                echo -e ""
+                ;;
+            FINDING)
+                local sev="$a" title="$b" desc="$c" rec="$d" tools_ev="$e"
+                case "$sev" in
+                    CRITICAL) echo -e "  ${CROSS} ${RED}[CRITICAL]${RESET} ${BOLD}${title}${RESET}" ;;
+                    WARNING)  echo -e "  ${CROSS} ${YELLOW}[WARNING]${RESET}  ${BOLD}${title}${RESET}" ;;
+                    INFO)     echo -e "  ${CHECK} ${CYAN}[INFO]${RESET}     ${title}" ;;
+                esac
+                [[ -n "$desc" ]] && echo -e "    ${DIM}${desc}${RESET}"
+                [[ -n "$rec" ]] && echo -e "    ${ARROW} ${rec}"
+                [[ -n "$tools_ev" ]] && echo -e "    ${DIM}tools: [${tools_ev}]${RESET}"
+                ;;
+            LATENCY)
+                # Print header once
+                if [[ -z "${_lat_header_done:-}" ]]; then
+                    _lat_header_done=1
+                    echo -e ""
+                    section "Latency"
+                    printf "  ${BOLD}%-32s %8s %8s %8s %8s %6s${RESET}\n" "OPERATION" "MEAN" "P50" "P95" "P99" "n"
+                    divider
+                fi
+                printf "  ${CYAN}%-32s${RESET} %7sms %7sms %7sms %7sms %5s\n" "$a" "$b" "$c" "$d" "$e" "$f"
+                ;;
+        esac
+    done
+    echo ""
+}
+
+# ── Command: test ─────────────────────────────────────────────────────
+cmd_test() {
+    local suite="${1:-all}"
+    local PY
+    PY="$(find_python)"
+
+    show_banner
+    section "Running Tests"
+
+    local pytest_args=(-v --tb=short)
+
+    case "$suite" in
+        all)
+            echo -e "  ${BULLET} Suite: ${BOLD}all${RESET}"
+            pytest_args+=("$SCRIPT_DIR/tests/")
+            ;;
+        conformance|security|transport|evaluation|integration|fuzz|fuzzing)
+            [[ "$suite" == "fuzzing" ]] && suite="fuzz"
+            echo -e "  ${BULLET} Suite: ${BOLD}${suite}${RESET}"
+            pytest_args+=(-m "$suite" "$SCRIPT_DIR/tests/")
+            ;;
+        fast)
+            echo -e "  ${BULLET} Suite: ${BOLD}fast${RESET} ${DIM}(excludes slow tests)${RESET}"
+            pytest_args+=(-m "not slow" "$SCRIPT_DIR/tests/")
+            ;;
+        *)
+            echo -e "  ${CROSS} Unknown suite: ${suite}"
+            echo -e "  ${DIM}Available: all, conformance, security, transport, evaluation, integration, fuzz, fast${RESET}"
+            exit 1
+            ;;
+    esac
+
+    echo -e ""
+    "$PY" -m pytest "${pytest_args[@]}" 2>&1 | while IFS= read -r line; do
+        # Colorize pytest output
+        case "$line" in
+            *PASSED*)  echo -e "  ${CHECK} ${line}" ;;
+            *FAILED*)  echo -e "  ${CROSS} ${line}" ;;
+            *ERROR*)   echo -e "  ${CROSS} ${RED}${line}${RESET}" ;;
+            *warning*) echo -e "  ${DIM}${line}${RESET}" ;;
+            *"="*)     echo -e "  ${BOLD}${line}${RESET}" ;;
+            *)         echo -e "  ${line}" ;;
+        esac
+    done
+    echo ""
+}
+
+# ── Command: record ───────────────────────────────────────────────────
+cmd_record() {
+    if [[ $# -lt 1 ]]; then
+        echo -e "  ${CROSS} Usage: mcplab record ${CYAN}<server-command>${RESET} [-o output.jsonl]"
+        exit 1
+    fi
+
+    local server_cmd="$1"
+    shift
+    local output="traffic.jsonl"
+
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            -o|--output) output="$2"; shift 2 ;;
+            *)           echo -e "  ${CROSS} Unknown option: $1"; exit 1 ;;
+        esac
+    done
+
+    local PY
+    PY="$(find_python)"
+
+    show_banner
+    section "Recording Traffic"
+    echo -e "  ${BULLET} Server: ${CYAN}${server_cmd}${RESET}"
+    echo -e "  ${BULLET} Output: ${CYAN}${output}${RESET}"
+    echo -e "  ${DIM}  Press Ctrl+C to stop recording${RESET}"
+    echo -e ""
+
+    "$PY" -m harness.interceptor --cmd "$server_cmd" --log "$output" 2>&1
+    echo -e ""
+    echo -e "  ${CHECK} Traffic saved to ${CYAN}${output}${RESET}"
+}
+
+# ── Command: report ───────────────────────────────────────────────────
+cmd_report() {
+    if [[ $# -lt 1 ]]; then
+        echo -e "  ${CROSS} Usage: mcplab report ${CYAN}<json-report-file>${RESET}"
+        exit 1
+    fi
+
+    if [[ ! -f "$1" ]]; then
+        echo -e "  ${CROSS} ${RED}File not found: $1${RESET}"
+        exit 1
+    fi
+
+    show_banner
+    render_report "$1"
+}
+
+# ── Main Dispatch ─────────────────────────────────────────────────────
+main() {
+    if [[ $# -eq 0 ]]; then
+        show_help
+        exit 0
+    fi
+
+    local cmd="$1"
+    shift
+
+    case "$cmd" in
+        profile)  cmd_profile "$@" ;;
+        tools)    cmd_tools "$@" ;;
+        test)     cmd_test "$@" ;;
+        record)   cmd_record "$@" ;;
+        report)   cmd_report "$@" ;;
+        help|-h|--help)  show_help ;;
+        version|--version|-v)
+            show_banner ;;
+        *)
+            echo -e "  ${CROSS} Unknown command: ${cmd}"
+            echo -e "  ${DIM}Run 'mcplab help' for usage${RESET}"
+            exit 1
+            ;;
+    esac
+}
+
+main "$@"
