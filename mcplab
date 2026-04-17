@@ -133,6 +133,7 @@ cmd_profile() {
     echo -e "  ${BULLET} Suites:   ${suites}"
     echo -e "  ${BULLET} Timeout:  ${timeout}s"
     echo -e ""
+    echo -e "  ${DIM}Connecting and running checks...${RESET}"
 
     local PY
     PY="$(find_python)"
@@ -141,15 +142,13 @@ cmd_profile() {
     tmpfile="$(mktemp /tmp/mcplab-profile-XXXXXX.json)"
     trap "rm -f '$tmpfile'" EXIT
 
-    # Run the profiler, capture JSON output, stream the log
+    # Run the profiler silently, capture JSON output only
     "$PY" "$SCRIPT_DIR/scripts/profile_server.py" \
         "$server_cmd" \
         --output "$tmpfile" \
         --tests $suites \
         --timeout "$timeout" \
-        --log-level WARNING 2>&1 | while IFS= read -r line; do
-            echo -e "  ${DIM}${line}${RESET}"
-        done
+        --log-level WARNING &>/dev/null
 
     # Parse and render the JSON report
     if [[ -f "$tmpfile" ]]; then
@@ -289,11 +288,11 @@ for label, p in latency.items():
                 ;;
             SUMMARY)
                 local total="$a" crit="$b" warns="$c" infos="$d"
-                echo -e "  ${BULLET} Findings: ${BOLD}${total}${RESET}  ${DIM}(${RESET}"
-                [[ "$crit" != "0" ]] && echo -ne "${RED}${crit} critical${RESET} "
-                [[ "$warns" != "0" ]] && echo -ne "${YELLOW}${warns} warnings${RESET} "
-                [[ "$infos" != "0" ]] && echo -ne "${CYAN}${infos} info${RESET}"
-                echo -e "${DIM})${RESET}"
+                local detail=""
+                [[ "$crit" != "0" ]] && detail+="${RED}${crit} critical${RESET} "
+                [[ "$warns" != "0" ]] && detail+="${YELLOW}${warns} warnings${RESET} "
+                [[ "$infos" != "0" ]] && detail+="${CYAN}${infos} info${RESET}"
+                echo -e "  ${BULLET} Findings: ${BOLD}${total}${RESET}  ${DIM}(${RESET}${detail}${DIM})${RESET}"
                 echo -e ""
                 ;;
             FINDING)
