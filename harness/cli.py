@@ -422,11 +422,11 @@ def cmd_tools(args):
 def cmd_test(args):
     import subprocess
 
-    banner()
-    section("Running Tests")
-
     suite = args.suite or "all"
     pytest_args = [sys.executable, "-m", "pytest", "-v", "--tb=short"]
+
+    banner()
+    section("Running Tests")
 
     if suite == "all":
         print(f"  {BULLET} Suite: {BOLD}all{RESET}")
@@ -445,6 +445,7 @@ def cmd_test(args):
         sys.exit(1)
 
     print()
+    sys.stdout.flush()
     proc = subprocess.run(pytest_args)
     sys.exit(proc.returncode)
 
