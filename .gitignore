@@ -30,6 +30,9 @@ htmlcov/
 *~
 .DS_Store
 
+# uv
+uv.lock
+
 # Reports and output
 benchmark_results.json
 profile_results.json

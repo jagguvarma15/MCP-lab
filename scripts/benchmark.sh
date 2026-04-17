@@ -1,8 +1,8 @@
 #!/bin/bash
 # Run transport latency benchmarks and output a JSON report
 set -e
-python -m pytest tests/transport/test_latency.py -v -s --tb=short
-python -c "
+uv run pytest tests/transport/test_latency.py -v -s --tb=short
+uv run python -c "
 from harness import TestReporter
 import json
 r = TestReporter('benchmark')

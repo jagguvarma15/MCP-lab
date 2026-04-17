@@ -9,4 +9,4 @@ if [ -z "$1" ]; then
     exit 1
 fi
 
-python -m harness.interceptor --cmd "$1" --log "${2:-traffic.jsonl}"
+uv run python -m harness.interceptor --cmd "$1" --log "${2:-traffic.jsonl}"
