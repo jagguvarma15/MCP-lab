@@ -206,7 +206,7 @@ def cmd_tools(session: REPLSession, args: list[str]):
     )
 
 
-def cmd_call(session: REPLSession, args: list[str]):
+def cmd_call(session: REPLSession, args: list[str], raw_line: str = ""):
     if not args:
         session.console.print("[red]Usage: call <tool_name> [json_args][/red]")
         return
@@ -217,10 +217,11 @@ def cmd_call(session: REPLSession, args: list[str]):
         session.console.print(f"[red]Tool not found: {tool_name}[/red]")
         return
 
-    # Parse JSON args -- everything after tool name joined together
+    # Extract JSON from raw line to preserve quotes in keys
     tool_args = {}
-    if len(args) > 1:
-        raw_json = " ".join(args[1:])
+    brace_pos = raw_line.find("{")
+    if brace_pos != -1:
+        raw_json = raw_line[brace_pos:]
         try:
             tool_args = json.loads(raw_json)
         except json.JSONDecodeError as e:
