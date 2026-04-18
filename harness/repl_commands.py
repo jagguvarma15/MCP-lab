@@ -498,7 +498,10 @@ def dispatch(session: REPLSession, line: str) -> bool:
         return False
 
     try:
-        handler(session, args)
+        if cmd == "call":
+            handler(session, args, raw_line=line)
+        else:
+            handler(session, args)
     except Exception as e:
         session.console.print(f"[red]Error: {e}[/red]")
 
