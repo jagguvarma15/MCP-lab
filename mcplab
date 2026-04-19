@@ -1,12 +1,15 @@
 #!/usr/bin/env bash
 # ──────────────────────────────────────────────────────────────────────
-# mcplab — thin wrapper that delegates to `uv run mcplab`
+# mcplab — activates the .venv and launches the CLI
 # ──────────────────────────────────────────────────────────────────────
 set -euo pipefail
 
-if ! command -v uv &>/dev/null; then
-    echo "  error: uv is not installed. Install it: https://docs.astral.sh/uv/getting-started/installation/"
+DIR="$(cd "$(dirname "$0")" && pwd)"
+
+if [ ! -d "$DIR/.venv" ]; then
+    echo "  error: .venv not found. Run 'make install' first."
     exit 1
 fi
 
-exec uv run mcplab "$@"
+source "$DIR/.venv/bin/activate"
+exec python -m harness.cli "$@"

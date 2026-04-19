@@ -54,9 +54,12 @@ PROJECT_DIR = Path(__file__).resolve().parent.parent
 
 def banner():
     print()
-    print(f"  {BOLD}{CYAN}╔╦╗╔═╗╔═╗  ╦  ╔═╗╔╗ {RESET}")
-    print(f"  {BOLD}{CYAN}║║║║  ╠═╝  ║  ╠═╣╠╩╗{RESET}")
-    print(f"  {BOLD}{CYAN}╩ ╩╚═╝╩    ╩═╝╩ ╩╚═╝{RESET}")
+    print(f"  {BOLD}{CYAN}███╗   ███╗ ██████╗██████╗     ██╗      █████╗ ██████╗ {RESET}")
+    print(f"  {BOLD}{CYAN}████╗ ████║██╔════╝██╔══██╗    ██║     ██╔══██╗██╔══██╗{RESET}")
+    print(f"  {BOLD}{CYAN}██╔████╔██║██║     ██████╔╝    ██║     ███████║██████╔╝{RESET}")
+    print(f"  {BOLD}{CYAN}██║╚██╔╝██║██║     ██╔═══╝     ██║     ██╔══██║██╔══██╗{RESET}")
+    print(f"  {BOLD}{CYAN}██║ ╚═╝ ██║╚██████╗██║         ███████╗██║  ██║██████╔╝{RESET}")
+    print(f"  {BOLD}{CYAN}╚═╝     ╚═╝ ╚═════╝╚═╝         ╚══════╝╚═╝  ╚═╝╚═════╝ {RESET}")
     print(f"  {DIM}MCP Server Test Harness{RESET}  {DIM}v0.1.0{RESET}")
     print()
 
