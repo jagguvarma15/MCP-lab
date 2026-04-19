@@ -516,9 +516,6 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("report", help="Render a JSON report in the terminal")
     p.add_argument("json_file", help="Path to the JSON report file")
 
-    # interactive
-    sub.add_parser("interactive", help="Start interactive REPL shell")
-
     # help / version
     sub.add_parser("help", help="Show help")
     sub.add_parser("version", help="Show version")
@@ -532,12 +529,7 @@ def main():
     parser = build_parser()
     args = parser.parse_args()
 
-    if args.command is None or args.command == "interactive":
-        from harness.repl import start_repl
-        start_repl()
-        return
-
-    if args.command == "help":
+    if args.command is None or args.command == "help":
         banner()
         parser.print_help()
         print()
